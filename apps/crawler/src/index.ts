@@ -31,7 +31,60 @@ async function main() {
         descriptionElement?.getAttribute("data-truncate-revealer-overflow-text") ?? "";
       const description = innerDesc + hiddenDesc;
 
-      return { name, description };
+      // Users, Industries, Market Segment
+      const details: Record<string, (string | undefined)[]> = {};
+      const sectionTitles = ["users", "industries", "marketSegment"];
+
+      for (let i = 0; i < sectionTitles.length; i++) {
+        const title = sectionTitles[i];
+        const section = el
+          .querySelector("div.grid-x.grid-margin-x.grid-margin-y.pt-half.pb-half-small-only")
+          ?.querySelector(`.cell.medium-4:nth-child(${i + 1})`);
+
+        if (section && title) {
+          const items = section.querySelectorAll("li");
+          details[title] = Array.from(items).map((item) => item?.textContent?.trim());
+        }
+      }
+
+      // Pricing (Entry Level)
+      const pricingElement = el.querySelector(".product-card__price-pill");
+      const priceLink = pricingElement?.querySelector("a")?.getAttribute("href");
+      const price = pricingElement?.querySelector("a")?.textContent;
+      const pricing = {
+        link: priceLink,
+        price,
+      };
+
+      // Pros and Cons
+      const prosElement = el.querySelector('div[aria-label="Pros"]');
+      const pros = Array.from(
+        prosElement?.querySelectorAll(".text-small-normal .ellipsis-dynamic-wrapper") ?? []
+      ).map((el) => el?.textContent);
+      const consElement = el.querySelector('div[aria-label="Cons"]');
+      const cons = Array.from(
+        consElement?.querySelectorAll(".text-small-normal .ellipsis-dynamic-wrapper") ?? []
+      ).map((el) => el?.textContent);
+      const prosAndCons = { pros, cons };
+
+      // User Satisfaction
+      const userSatisfactionElement = el.querySelector(
+        ".grid-x.grid-margin-x.grid-margin-y.mb-1-small-only"
+      );
+      const userReviewsElement = userSatisfactionElement?.querySelectorAll(".cell");
+      const userReviews = Array.from(userReviewsElement ?? []);
+      const userSatisfaction: Record<string, string> = {};
+      const satisfactionTitles = ["application", "managed", "nlp", "easeOfAdmin"];
+      for (let i = 0; i < satisfactionTitles.length; i++) {
+        const title = satisfactionTitles[i];
+        const value = userReviews[i]?.querySelector(
+          ".center-center.fw-semibold.text-normal-medium"
+        )?.textContent;
+
+        if (value && title) userSatisfaction[title] = value;
+      }
+
+      return { name, description, details, pricing, prosAndCons, userSatisfaction };
     });
 
     return products;

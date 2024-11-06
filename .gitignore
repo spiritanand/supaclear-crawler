@@ -39,3 +39,5 @@ yarn-error.log*
 
 # Drizzle
 drizzle/
+index.json
+scratch.html
