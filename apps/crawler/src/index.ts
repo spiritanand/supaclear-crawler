@@ -10,7 +10,7 @@ puppeteer.use(AdblockerPlugin({ blockTrackers: true }));
 const MAX_PAGES = 100; // to restrict the number of pages to crawl
 
 async function main() {
-  const browser = await puppeteer.launch({ headless: false });
+  const browser = await puppeteer.launch({ headless: true });
 
   const ORDER = "popular"; // can be "g2_score", "popular" and "top_shelf"
   const CATEGORY = "data-science-and-machine-learning-platforms";
@@ -23,7 +23,8 @@ async function main() {
         ? `https://www.g2.com/categories/${CATEGORY}?order=${ORDER}#product-list`
         : `https://www.g2.com/categories/${CATEGORY}?order=${ORDER}&page=${currentPage}#product-list`;
 
-    const page = await browser.newPage();
+    const context = await browser.createBrowserContext();
+    const page = await context.newPage();
     await page.setViewport({ width: 1920, height: 1080 });
 
     await page.goto(URL, {
