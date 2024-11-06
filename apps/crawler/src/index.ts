@@ -1,7 +1,7 @@
 import puppeteer from "puppeteer-extra";
 // import fs from "fs";
 import dotenv from "dotenv";
-import { db, products, Details, UserSatisfaction } from "@repo/database";
+import { db, products, Details, UserSatisfaction, Product, ScrapedData, db } from "@repo/database";
 
 dotenv.config();
 
@@ -12,13 +12,12 @@ import AdblockerPlugin from "puppeteer-extra-plugin-adblocker";
 puppeteer.use(AdblockerPlugin({ blockTrackers: true }));
 
 const MAX_PAGES = 1; // to restrict the number of pages to crawl
+const ORDER = "popular"; // can be "g2_score", "popular" and "top_shelf"
+const CATEGORY = "data-science-and-machine-learning-platforms";
+// const CATEGORY = "relational-databases"; // works on every G2 category
 
-async function main() {
+async function scrapeProducts() {
   const browser = await puppeteer.launch({ headless: true });
-
-  const ORDER = "popular"; // can be "g2_score", "popular" and "top_shelf"
-  const CATEGORY = "data-science-and-machine-learning-platforms";
-  // const CATEGORY = "relational-databases"; // works on every G2 category
 
   const allProducts = [];
   for (let currentPage = 1; currentPage <= MAX_PAGES; currentPage++) {
@@ -29,7 +28,7 @@ async function main() {
 
     const context = await browser.createBrowserContext();
     const page = await context.newPage();
-    await page.setViewport({ width: 1920, height: 1080 });
+    // await page.setViewport({ width: 1920, height: 1080 });
 
     await page.goto(URL, {
       waitUntil: "networkidle0",
@@ -136,15 +135,27 @@ async function main() {
 
   await browser.close();
 
+  // save JSON to file
+  // fs.writeFileSync("index.json", JSON.stringify(allProducts));
+
+  return allProducts;
+}
+
+async function parseProducts(allProducts: ScrapedData[]) {}
+
+async function main() {
+  // Scrape all products
+  const allProducts = await scrapeProducts();
+
+  // Save to all products database
   await db.insert(products).values({
     category: CATEGORY,
     scrapedData: allProducts,
   });
-
   await db.$client.end();
 
-  // save JSON to file
-  // fs.writeFileSync("index.json", JSON.stringify(allProducts));
+  // LLM Parsing
+  await parseProducts(allProducts);
 }
 
 main().catch((error) => {
