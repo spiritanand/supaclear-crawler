@@ -14,7 +14,7 @@ puppeteer.use(AdblockerPlugin({ blockTrackers: true }));
 const MAX_PAGES = 1; // to restrict the number of pages to crawl
 
 async function main() {
-  const browser = await puppeteer.launch({ headless: false });
+  const browser = await puppeteer.launch({ headless: true });
 
   const ORDER = "popular"; // can be "g2_score", "popular" and "top_shelf"
   const CATEGORY = "data-science-and-machine-learning-platforms";
@@ -39,8 +39,14 @@ async function main() {
       const products = Array.from(document.querySelectorAll(".product-card")).map((el) => {
         // Product name
         const name = el.querySelector(".product-card__product-name")?.textContent ?? "";
-        const image =
-          el.querySelector("product-card__img")?.querySelector("img")?.getAttribute("src") ?? "";
+        const srcImage =
+          el.querySelector(".product-card__img")?.querySelector("img")?.getAttribute("src") ?? "";
+        const image = srcImage.includes("data")
+          ? (el
+              .querySelector(".product-card__img")
+              ?.querySelector("img")
+              ?.getAttribute("data-deferred-image-src") ?? "")
+          : srcImage;
 
         // Product description
         const descriptionElement = el.querySelector(".product-listing__paragraph");
