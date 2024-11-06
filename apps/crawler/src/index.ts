@@ -1,5 +1,9 @@
 import puppeteer from "puppeteer-extra";
-import fs from "fs";
+// import fs from "fs";
+import dotenv from "dotenv";
+import { db, products, Details, UserSatisfaction } from "@repo/database";
+
+dotenv.config();
 
 import StealthPlugin from "puppeteer-extra-plugin-stealth";
 puppeteer.use(StealthPlugin());
@@ -7,10 +11,10 @@ puppeteer.use(StealthPlugin());
 import AdblockerPlugin from "puppeteer-extra-plugin-adblocker";
 puppeteer.use(AdblockerPlugin({ blockTrackers: true }));
 
-const MAX_PAGES = 100; // to restrict the number of pages to crawl
+const MAX_PAGES = 1; // to restrict the number of pages to crawl
 
 async function main() {
-  const browser = await puppeteer.launch({ headless: true });
+  const browser = await puppeteer.launch({ headless: false });
 
   const ORDER = "popular"; // can be "g2_score", "popular" and "top_shelf"
   const CATEGORY = "data-science-and-machine-learning-platforms";
@@ -34,18 +38,20 @@ async function main() {
     const productsOnPage = await page.evaluate(() => {
       const products = Array.from(document.querySelectorAll(".product-card")).map((el) => {
         // Product name
-        const name = el.querySelector(".product-card__product-name")?.textContent;
+        const name = el.querySelector(".product-card__product-name")?.textContent ?? "";
+        const image =
+          el.querySelector("product-card__img")?.querySelector("img")?.getAttribute("src") ?? "";
 
         // Product description
         const descriptionElement = el.querySelector(".product-listing__paragraph");
-        const innerDesc = descriptionElement?.textContent;
+        const innerDesc = descriptionElement?.textContent ?? "";
         const hiddenDesc =
           descriptionElement?.getAttribute("data-truncate-revealer-overflow-text") ?? "";
         const description = innerDesc + hiddenDesc;
 
         // Users, Industries, Market Segment
-        const details: Record<string, (string | undefined)[]> = {};
-        const sectionTitles = ["users", "industries", "marketSegment"];
+        const sectionTitles: (keyof Details)[] = ["users", "industries", "marketSegment"];
+        const details: Details = {};
 
         for (let i = 0; i < sectionTitles.length; i++) {
           const title = sectionTitles[i];
@@ -64,19 +70,19 @@ async function main() {
         const priceLink = pricingElement?.querySelector("a")?.getAttribute("href");
         const price = pricingElement?.querySelector("a")?.textContent;
         const pricing = {
-          link: priceLink,
-          price,
+          link: priceLink ?? "",
+          price: price ?? "",
         };
 
         // Pros and Cons
         const prosElement = el.querySelector('div[aria-label="Pros"]');
         const pros = Array.from(
           prosElement?.querySelectorAll(".text-small-normal .ellipsis-dynamic-wrapper") ?? []
-        ).map((el) => el?.textContent);
+        ).map((el) => el?.textContent ?? "");
         const consElement = el.querySelector('div[aria-label="Cons"]');
         const cons = Array.from(
           consElement?.querySelectorAll(".text-small-normal .ellipsis-dynamic-wrapper") ?? []
-        ).map((el) => el?.textContent);
+        ).map((el) => el?.textContent ?? "");
         const prosAndCons = { pros, cons };
 
         // User Satisfaction
@@ -85,8 +91,18 @@ async function main() {
         );
         const userReviewsElement = userSatisfactionElement?.querySelectorAll(".cell");
         const userReviews = Array.from(userReviewsElement ?? []);
-        const userSatisfaction: Record<string, string> = {};
-        const satisfactionTitles = ["application", "managed", "nlp", "easeOfAdmin"];
+        const userSatisfaction: UserSatisfaction = {
+          application: "",
+          managed: "",
+          nlp: "",
+          easeOfAdmin: "",
+        };
+        const satisfactionTitles: (keyof UserSatisfaction)[] = [
+          "application",
+          "managed",
+          "nlp",
+          "easeOfAdmin",
+        ];
         for (let i = 0; i < satisfactionTitles.length; i++) {
           const title = satisfactionTitles[i];
           const value = userReviews[i]?.querySelector(
@@ -96,7 +112,7 @@ async function main() {
           if (value && title) userSatisfaction[title] = value;
         }
 
-        return { name, description, details, pricing, prosAndCons, userSatisfaction };
+        return { name, image, description, details, pricing, prosAndCons, userSatisfaction };
       });
 
       return products;
@@ -114,8 +130,15 @@ async function main() {
 
   await browser.close();
 
-  // save html to file
-  fs.writeFileSync("index.json", JSON.stringify(allProducts));
+  await db.insert(products).values({
+    category: CATEGORY,
+    scrapedData: allProducts,
+  });
+
+  await db.$client.end();
+
+  // save JSON to file
+  // fs.writeFileSync("index.json", JSON.stringify(allProducts));
 }
 
 main().catch((error) => {

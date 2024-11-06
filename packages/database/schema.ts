@@ -1,29 +1,41 @@
-import { pgTable, integer, serial, text, timestamp } from "drizzle-orm/pg-core";
+import { jsonb, pgTable, text, timestamp, varchar } from "drizzle-orm/pg-core";
 import { relations } from "drizzle-orm";
+import { createId } from "@paralleldrive/cuid2";
 
-export const users = pgTable("users", {
-  id: serial("id").primaryKey(),
-  name: text("name").notNull(),
+export interface Details {
+  users?: (string | undefined)[];
+  industries?: (string | undefined)[];
+  marketSegment?: (string | undefined)[];
+}
+interface Pricing {
+  link: string;
+  price: string;
+}
+interface ProsAndCons {
+  pros: string[];
+  cons: string[];
+}
+export interface UserSatisfaction {
+  application: string;
+  managed: string;
+  nlp: string;
+  easeOfAdmin: string;
+}
+export interface ScrapedData {
+  name: string;
+  description: string;
+  image: string;
+  details: Details;
+  pricing: Pricing;
+  prosAndCons: ProsAndCons;
+  userSatisfaction: UserSatisfaction;
+}
+
+export const products = pgTable("products", {
+  id: varchar("id")
+    .primaryKey()
+    .$defaultFn(() => createId()),
+  category: text("category").notNull(),
   createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
+  scrapedData: jsonb("scraped_data").$type<ScrapedData[]>().notNull(),
 });
-
-export const usersRelations = relations(users, ({ many }) => ({
-  posts: many(posts),
-}));
-
-export const posts = pgTable("posts", {
-  id: serial("id").primaryKey(),
-  title: text("title").notNull(),
-  content: text("content").notNull(),
-  createdAt: timestamp("created_at", { withTimezone: true }).notNull().defaultNow(),
-  userId: integer("user_id")
-    .notNull()
-    .references(() => users.id),
-});
-
-export const postsRelations = relations(posts, ({ one }) => ({
-  takeout: one(users, {
-    fields: [posts.userId],
-    references: [users.id],
-  }),
-}));

@@ -1,13 +1,15 @@
 {
-  "name": "supagrow-crawler",
+  "name": "supaclear-crawler",
   "private": true,
   "scripts": {
+    "start": "turbo start",
     "build": "turbo build",
     "dev": "turbo dev",
     "lint": "turbo lint",
     "format": "prettier --write \"**/*.{ts,tsx,md}\"",
     "db:check": "turbo run db:check",
-    "db:push": "turbo run db:push"
+    "db:push": "turbo run db:push",
+    "db:studio": "turbo run db:studio"
   },
   "devDependencies": {
     "prettier": "^3.2.5",
