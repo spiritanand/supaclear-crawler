@@ -1,7 +1,17 @@
 import puppeteer from "puppeteer-extra";
 // import fs from "fs";
 import dotenv from "dotenv";
-import { db, products, Details, UserSatisfaction, Product, ScrapedData, db } from "@repo/database";
+import {
+  db,
+  products,
+  Details,
+  UserSatisfaction,
+  ScrapedData,
+  parsedProducts,
+} from "@repo/database";
+import { generateObject } from "ai";
+import { openai } from "@ai-sdk/openai";
+import { z } from "zod";
 
 dotenv.config();
 
@@ -141,23 +151,71 @@ async function scrapeProducts() {
   return allProducts;
 }
 
-async function parseProducts(allProducts: ScrapedData[]) {}
+const categoryWinnerSchema = z.object({
+  name: z.string(),
+  reason: z.string(),
+});
+const analysisSchema = z.object({
+  bestFor: z.object({
+    overall: categoryWinnerSchema,
+    enterprise: categoryWinnerSchema,
+    value: categoryWinnerSchema,
+  }),
+  productSummaries: z.array(
+    z.object({
+      name: z.string(),
+      summary: z.string(),
+    })
+  ),
+  summary: z.string(),
+});
+
+async function parseProducts(allProducts: ScrapedData[]) {
+  const { object } = await generateObject({
+    model: openai("gpt-4o"),
+    schema: analysisSchema,
+    prompt: `${JSON.stringify(allProducts)}
+  Given product data in JSON, provide a summary in the following categories: Best for Enterprise, Best Value for Money, and Best Overall. Choose one clear winner in each category and include a rationale. Put this in an object with the key "bestFor" and the value as an object with the keys "overall", "enterprise", and "value". The value of each key is an object with the keys "name" and "reason".
+
+For each product, write a one-line summary and organize these in an array of objects. Put this in an object with the key "productSummaries".
+
+Return the complete structured JSON.
+Use the real name of the product and all other details as it is from the JSON provided.
+`,
+  });
+
+  return object;
+}
 
 async function main() {
   // Scrape all products
   const allProducts = await scrapeProducts();
 
   // Save to all products database
-  await db.insert(products).values({
-    category: CATEGORY,
-    scrapedData: allProducts,
-  });
-  await db.$client.end();
+  const productIds = await db
+    .insert(products)
+    .values({
+      category: CATEGORY,
+      scrapedData: allProducts,
+    })
+    .returning({ id: products.id });
+  const productId = productIds[0]?.id ?? "";
+
+  if (!productId) throw new Error("No product ID found");
 
   // LLM Parsing
-  await parseProducts(allProducts);
+  const parsedData = await parseProducts(allProducts);
+
+  // Save to parsed products database
+  await db.insert(parsedProducts).values({
+    category: CATEGORY,
+    parsedData,
+    productId,
+  });
+  await db.$client.end();
 }
 
 main().catch((error) => {
   console.error("An error occurred:", error);
+  process.exit(1);
 });
