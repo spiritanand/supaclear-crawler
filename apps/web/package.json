@@ -8,6 +8,7 @@
     "lint": "next lint"
   },
   "dependencies": {
+    "@repo/database": "workspace:*",
     "@repo/ui": "workspace:*",
     "class-variance-authority": "^0.7.0",
     "clsx": "^2.1.1",
